@@ -16,20 +16,22 @@ import (
 	immich "github.com/jaybinks/immich-go/immich"
 )
 
-var ImmichAPI *immich.ImmichClient
+// var ImmichAPI *immich.ImmichClient
 var ctx context.Context
 var Albums map[string]string
 
-var path string
+var base_path string
+var chatname []string
 
 // Consts are in secrets.go (not in git)
 /*
 const ImmichURI = "http://192.168.0.100:2283/"
 const ImmichAPIKey = "YOURKEYHERE"
-const chatname = "somebodyandsomelongstring_10153462234534590"
 
-path := "/Users/you/Downloads/your_activity_across_facebook/messages/inbox/" + chatname + "/"
+base_path = "/Users/you/Downloads/your_activity_across_facebook/messages/inbox"
 
+chatname = append(chatname, "melissachats_2592319644154807")
+chatname = append(chatname, "chat2_3962147207173064")
 */
 
 func main() {
@@ -53,13 +55,17 @@ func main() {
 		Albums[ThisAlbum.AlbumName] = ThisAlbum.ID
 	}
 
-	base_path := filepath.Base(path)
+	for _, this_chat := range chatname {
+		chat_path := fmt.Sprintf("%s/%s/", base_path, this_chat)
+		process_facebook_chat(ImmichAPI, chat_path)
+	}
+}
 
-	//os.Exit(0)
+func process_facebook_chat(ImmichAPI *immich.ImmichClient, chat_path string) {
 
-	//************************************
+	base_path := filepath.Base(chat_path)
 
-	json, err := ioutil.ReadFile(path + "message_1.json") //read the content of file
+	json, err := ioutil.ReadFile(chat_path + "message_1.json") //read the content of file
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -78,9 +84,6 @@ func main() {
 	AlbumName := "Facebook messages : " + names
 	AlbumID := CreateAlbum(ImmichAPI, AlbumName)
 	fmt.Printf("Uploading to Album : %s\n", AlbumName)
-	fmt.Printf("Uploading to Album : %s\n", AlbumID)
-
-	// *****
 
 	for _, child := range jsonParsed.S("messages").Children() {
 
@@ -103,13 +106,13 @@ func main() {
 				timeint, err := strconv.ParseInt(timestamp, 10, 64)
 				if err != nil {
 				}
-				AssetTime := time.Unix(timeint, 0)
+				AssetTime = time.Unix(timeint, 0)
 
 				// Make path releative to our JSON
 				pos := strings.Index(url, base_path) + len(base_path) + 1 // +1 for the leading "/"
 				relpath := url[pos:]
 
-				AssetID, err := upload(ImmichAPI, path+relpath, AssetTime, sendername) //+"\n"+content)
+				AssetID, err := upload(ImmichAPI, chat_path+relpath, AssetTime, sendername) //+"\n"+content)
 				if err == nil {
 					ImmichAPI.AddAssetToAlbum(ctx, AlbumID, []string{AssetID})
 				}
@@ -123,13 +126,13 @@ func main() {
 				timeint, err := strconv.ParseInt(timestamp, 10, 64)
 				if err != nil {
 				}
-				AssetTime := time.Unix(timeint, 0)
+				AssetTime = time.Unix(timeint, 0)
 
 				// Make path releative to our JSON
 				pos := strings.Index(url, base_path) + len(base_path) + 1 // +1 for the leading "/"
 				relpath := url[pos:]
 
-				AssetID, err := upload(ImmichAPI, path+relpath, AssetTime, sendername+"\n"+content)
+				AssetID, err := upload(ImmichAPI, chat_path+relpath, AssetTime, sendername+"\n"+content)
 				if err == nil {
 					ImmichAPI.AddAssetToAlbum(ctx, AlbumID, []string{AssetID})
 				}
@@ -137,14 +140,14 @@ func main() {
 
 		}
 
-		if url != "" {
+		/*if url != "" {
 
 			fmt.Printf("%s %s %s %s\n",
 				AssetTime.String(),
 				child.Path("sender_name").Data().(string),
 				url,
 				content)
-		}
+		}*/
 	}
 
 }
@@ -171,7 +174,18 @@ func upload(ImmichAPI *immich.ImmichClient, File string, time time.Time, Descrip
 
 	resp, err := ImmichAPI.AssetUpload(ctx, &la)
 
-	//fmt.Printf("Duplicate : %s\n", resp.Duplicate)
+	if resp.Duplicate {
+
+		/*
+			Asset, _ := ImmichAPI.GetAssetByID(ctx, resp.ID)
+
+			fmt.Printf("Duplicate : %s %s\n", resp.Duplicate, resp.ID)
+			ImmichAPI.UpdateAsset(ctx, resp.ID, Asset)
+
+			// Cant figure out API calls to set the date !!!!!
+		*/
+	}
+
 	if err != nil {
 		fmt.Printf("Error : %s\n", err.Error())
 	} else {
